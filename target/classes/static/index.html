@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo SSE - Server Sent Events</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+        }
+        #eventList {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .event-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #4caf50;
+            background-color: #fff;
+        }
+        .event-item pre {
+            margin: 5px 0;
+            white-space: pre-wrap;
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #777;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input {
+            padding: 8px;
+            flex-grow: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Demo de Server-Sent Events (SSE)</h2>
+            <p>Esta demonstração mostra o uso de SSE para enviar eventos do servidor para o cliente em tempo real.</p>
+            
+            <div>
+                Status da conexão: 
+                <span id="connectionStatus" class="status disconnected">Desconectado</span>
+                <button id="connectButton">Conectar</button>
+                <button id="disconnectButton" disabled>Desconectar</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Enviar Mensagem</h2>
+            <div class="controls">
+                <input type="text" id="messageInput" placeholder="Digite uma mensagem para enviar">
+                <button id="sendButton" disabled>Enviar</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Eventos Recebidos</h2>
+            <button id="clearButton">Limpar</button>
+            <div id="eventList"></div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const sendButton = document.getElementById('sendButton');
+        const messageInput = document.getElementById('messageInput');
+        const eventList = document.getElementById('eventList');
+        const clearButton = document.getElementById('clearButton');
+
+        // Função para conectar ao SSE
+        function connect() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/api/sse/subscribe');
+
+            eventSource.onopen = function() {
+                updateConnectionStatus(true);
+                addEventToList('Sistema', 'Conexão estabelecida com o servidor');
+            };
+
+            eventSource.addEventListener('INIT', function(event) {
+                addEventToList('INIT', event.data);
+            });
+
+            eventSource.addEventListener('message', function(event) {
+                const data = JSON.parse(event.data);
+                addEventToList('Mensagem', data.message, data.timestamp);
+            });
+
+            eventSource.onerror = function(error) {
+                console.error('Erro na conexão SSE:', error);
+                updateConnectionStatus(false);
+                addEventToList('Erro', 'Conexão perdida. Tente reconectar.');
+                eventSource.close();
+                eventSource = null;
+            };
+        }
+
+        // Função para desconectar do SSE
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                updateConnectionStatus(false);
+                addEventToList('Sistema', 'Desconectado do servidor');
+            }
+        }
+
+        // Função para enviar mensagem
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                fetch(`/api/sse/publish?message=${encodeURIComponent(message)}`, {
+                    method: 'POST'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        messageInput.value = '';
+                        return response.text();
+                    }
+                    throw new Error('Falha ao enviar mensagem');
+                })
+                .then(data => {
+                    addEventToList('Enviado', `Mensagem "${message}" enviada com sucesso`);
+                })
+                .catch(error => {
+                    console.error('Erro ao enviar mensagem:', error);
+                    addEventToList('Erro', `Falha ao enviar mensagem: ${error.message}`);
+                });
+            }
+        }
+
+        // Atualiza o status da conexão na UI
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.textContent = 'Conectado';
+                connectionStatus.className = 'status connected';
+                connectButton.disabled = true;
+                disconnectButton.disabled = false;
+                sendButton.disabled = false;
+            } else {
+                connectionStatus.textContent = 'Desconectado';
+                connectionStatus.className = 'status disconnected';
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                sendButton.disabled = true;
+            }
+        }
+
+        // Adiciona evento à lista
+        function addEventToList(type, message, timestamp = null) {
+            const eventItem = document.createElement('div');
+            eventItem.className = 'event-item';
+            
+            const formattedTimestamp = timestamp 
+                ? new Date(timestamp).toLocaleString('pt-BR')
+                : new Date().toLocaleString('pt-BR');
+            
+            eventItem.innerHTML = `
+                <strong>${type}:</strong>
+                <pre>${message}</pre>
+                <div class="timestamp">${formattedTimestamp}</div>
+            `;
+            
+            eventList.appendChild(eventItem);
+            eventList.scrollTop = eventList.scrollHeight;
+        }
+
+        // Event listeners
+        connectButton.addEventListener('click', connect);
+        disconnectButton.addEventListener('click', disconnect);
+        sendButton.addEventListener('click', sendMessage);
+        clearButton.addEventListener('click', () => eventList.innerHTML = '');
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !sendButton.disabled) {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
