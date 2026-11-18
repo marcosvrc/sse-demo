@@ -1,17 +1,17 @@
 package br.com.sse.service;
 
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class SchedulerService {
 
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+
     private final SseEmitterService sseEmitterService;
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 
     public SchedulerService(SseEmitterService sseEmitterService) {
         this.sseEmitterService = sseEmitterService;
@@ -19,7 +19,11 @@ public class SchedulerService {
 
     @Scheduled(fixedRate = 60000) // A cada 1 minuto
     public void sendPeriodicEvent() {
-        String time = dateFormat.format(new Date());
-        sseEmitterService.sendEventToAll("Evento automático enviado às " + time);
+        sseEmitterService.sendEventToAll("Evento automático enviado às " + LocalTime.now().format(TIME_FORMAT));
+    }
+
+    @Scheduled(fixedRateString = "${sse.heartbeat-interval-ms:20000}")
+    public void sendHeartbeat() {
+        sseEmitterService.sendHeartbeat();
     }
 }

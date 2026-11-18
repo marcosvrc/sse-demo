@@ -1,7 +1,7 @@
 # SSE Demo - Demonstração de Server-Sent Events
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## 📋 Índice
@@ -185,7 +185,7 @@ src/
 ### Backend
 
 - **Java 21**: Linguagem de programação principal
-- **Spring Boot 3.5.5**: Framework para criação de aplicações Java
+- **Spring Boot 3.5.16**: Framework para criação de aplicações Java
 - **Spring Web**: Dependência para funcionalidades web e REST
 - **Spring Scheduling**: Para agendamento de tarefas periódicas
 - **SseEmitter**: API do Spring para implementar Server-Sent Events
@@ -240,8 +240,8 @@ A aplicação estará disponível em: `http://localhost:8081`
 - **URL**: `/api/sse/publish`
 - **Método**: POST
 - **Parâmetros**:
-  - `message`: Mensagem a ser enviada a todos os clientes conectados
-- **Resposta**: 200 OK com mensagem de confirmação
+  - `message`: Mensagem a ser enviada a todos os clientes conectados (obrigatória, até 500 caracteres)
+- **Resposta**: 200 OK com mensagem de confirmação, ou 400 se a mensagem for vazia ou longa demais
 - **Descrição**: Envia uma mensagem para todos os clientes conectados
 
 ## 🖥️ Interface do Usuário
@@ -269,8 +269,10 @@ A aplicação inclui uma interface web simples para testar e demonstrar o funcio
 
 ### Timeout e Reconexão
 
-- Por padrão, os emissores são configurados com `Long.MAX_VALUE` para tempo de expiração
-- O cliente implementa reconexão automática em caso de falha
+- Os emissores expiram após 30 minutos (`sse.emitter-timeout-ms`); o `EventSource` do navegador reconecta automaticamente
+- Um heartbeat (comentário SSE `:heartbeat`) é enviado a cada 20 segundos (`sse.heartbeat-interval-ms`) para manter a conexão ativa através de proxies e detectar clientes desconectados
+- A compressão HTTP não é aplicada a `text/event-stream`, pois o gzip acumularia eventos em buffer
+- O cliente usa a reconexão automática nativa do `EventSource` em caso de falha
 - A aplicação trata adequadamente casos de desconexão e erros
 
 ## 🤝 Contribuições

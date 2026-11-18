@@ -101,7 +101,7 @@
         <div class="card">
             <h2>Enviar Mensagem</h2>
             <div class="controls">
-                <input type="text" id="messageInput" placeholder="Digite uma mensagem para enviar">
+                <input type="text" id="messageInput" maxlength="500" placeholder="Digite uma mensagem para enviar">
                 <button id="sendButton" disabled>Enviar</button>
             </div>
         </div>
@@ -148,9 +148,14 @@
             eventSource.onerror = function(error) {
                 console.error('Erro na conexão SSE:', error);
                 updateConnectionStatus(false);
-                addEventToList('Erro', 'Conexão perdida. Tente reconectar.');
-                eventSource.close();
-                eventSource = null;
+                // Não fechamos o EventSource: o navegador tenta reconectar sozinho.
+                // Se ele desistir (readyState CLOSED), liberamos o botão de conectar.
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    addEventToList('Erro', 'Conexão encerrada. Clique em Conectar para tentar novamente.');
+                    eventSource = null;
+                } else {
+                    addEventToList('Sistema', 'Conexão perdida. Tentando reconectar...');
+                }
             };
         }
 
@@ -176,7 +181,9 @@
                         messageInput.value = '';
                         return response.text();
                     }
-                    throw new Error('Falha ao enviar mensagem');
+                    throw new Error(response.status === 400
+                        ? 'mensagem inválida (vazia ou acima de 500 caracteres)'
+                        : 'falha ao enviar mensagem');
                 })
                 .then(data => {
                     addEventToList('Enviado', `Mensagem "${message}" enviada com sucesso`);
@@ -214,11 +221,15 @@
                 ? new Date(timestamp).toLocaleString('pt-BR')
                 : new Date().toLocaleString('pt-BR');
             
-            eventItem.innerHTML = `
-                <strong>${type}:</strong>
-                <pre>${message}</pre>
-                <div class="timestamp">${formattedTimestamp}</div>
-            `;
+            // Montagem via textContent: o conteúdo vindo do servidor nunca é interpretado como HTML.
+            const typeEl = document.createElement('strong');
+            typeEl.textContent = `${type}:`;
+            const messageEl = document.createElement('pre');
+            messageEl.textContent = message;
+            const timestampEl = document.createElement('div');
+            timestampEl.className = 'timestamp';
+            timestampEl.textContent = formattedTimestamp;
+            eventItem.append(typeEl, messageEl, timestampEl);
             
             eventList.appendChild(eventItem);
             eventList.scrollTop = eventList.scrollHeight;
@@ -228,7 +239,7 @@
         connectButton.addEventListener('click', connect);
         disconnectButton.addEventListener('click', disconnect);
         sendButton.addEventListener('click', sendMessage);
-        clearButton.addEventListener('click', () => eventList.innerHTML = '');
+        clearButton.addEventListener('click', () => eventList.replaceChildren());
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !sendButton.disabled) {
                 sendMessage();

@@ -1,52 +1,14 @@
 package br.com.sse.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-public class SseEvent {
-    private String id;
-    private String message;
-    private LocalDateTime timestamp;
-
-    public SseEvent() {
-        this.timestamp = LocalDateTime.now();
-    }
+/**
+ * Evento enviado aos clientes SSE. O timestamp usa {@link Instant} (UTC, ISO-8601)
+ * para que o navegador converta corretamente para o fuso local.
+ */
+public record SseEvent(String id, String message, Instant timestamp) {
 
     public SseEvent(String id, String message) {
-        this.id = id;
-        this.message = message;
-        this.timestamp = LocalDateTime.now();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    @Override
-    public String toString() {
-        return "SseEvent{" +
-                "id='" + id + '\'' +
-                ", message='" + message + '\'' +
-                ", timestamp=" + timestamp +
-                '}';
+        this(id, message, Instant.now());
     }
 }
